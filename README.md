@@ -232,3 +232,148 @@ Python script defining all visuals; reads dashboard_data.csv and renders charts
 
 visual_config.json (optional)
 Layout settings and filter defaults for Power BI
+
+## Draft 2
+
+1. Data Processing
+Purpose: Parse 2.3 GB of raw maildir files into partitioned, tabular records to minimize in-memory footprint.
+
+Input files:
+data/maildir/ (extension-less email blobs; arbitrary nesting)
+
+Output files:
+processed_emails_{YYYY_MM}.csv
+Columns: message_id, date, sender, recipients, cc, bcc, subject, body
+One file per month (e.g. processed_emails_2000_07.csv), ~10–100 MB each
+
+email_index.ndjson
+Newline-delimited JSON; each line: {"message_id":"...", "path":"relative/path/to/file"}
+
+Memory strategy:
+Stream rglob + parser;
+Immediately append each record to its month’s CSV;
+Emit index entries as individual JSON lines.
+
+
+2. Sentiment Analysis
+Purpose: Enrich each parsed email with VADER scores in a streaming, chunked workflow.
+
+Input files:
+processed_emails_{YYYY_MM}.csv
+
+Output files:
+sentiment_scores_{YYYY_MM}.csv
+Columns: message_id, compound, neg, neu, pos, sentiment_label
+
+enriched_emails_{YYYY_MM}.csv
+All original columns + appended sentiment columns
+
+Memory strategy:
+Read source CSV in chunks (e.g. chunksize=10_000);
+Compute scores on each chunk;
+Append to output files without ever loading an entire month in RAM.
+
+3. Network Construction
+Purpose: Build node and edge lists without materializing the full graph in memory.
+
+Input files:
+enriched_emails_{YYYY_MM}.csv
+
+Output files:
+network_nodes.ndjson
+Each line: {"node_id":"email@example.com", "name":""}
+
+network_edges_{A-Z0-9_}.csv
+Partitioned by first character of source (e.g. network_edges_A.csv)
+Columns: source, target, weight
+
+network_meta.json
+Metadata: list of edge partitions, total nodes, total edge weight
+
+Memory strategy:
+Stream each monthly file;
+Maintain an on-disk CSV per partition;
+Emit unique nodes periodically to NDJSON.
+
+4. Network Analysis
+Purpose: Compute core SNA metrics by streaming in edge partitions.
+
+Input files:
+network_nodes.ndjson
+network_edges_{*}.csv
+
+Output files:
+sna_metrics.csv
+Columns: node_id, degree, betweenness, clustering_coeff, pagerank, density
+
+network_density.json
+Single value: global network density
+
+Memory strategy:
+Load node list (small) into NetworkX;
+Iterate over edge partitions one at a time to build or update the graph;
+Compute and write metrics in one pass.
+
+5. Network Graph Analysis
+Purpose: Prepare lightweight layout and Python code for Power BI visuals without dumping the entire graph.
+
+Input files:
+network_nodes.ndjson
+
+network_edges_{*}.csv
+(Optional) sna_metrics.csv
+
+Output files:
+
+graph_visualization.py
+Reads partitioned NDJSON/CSVs to render network via Plotly or Matplotlib
+
+graph_layout.ndjson
+Each line: {"node_id":"...", "x":float, "y":float}
+
+Memory strategy:
+Compute layout on subgraphs or via iterative coordinate updates;
+Stream results directly to NDJSON.
+
+6. Organizational Insights
+Purpose: Derive ML-driven insights using chunked feature sets to avoid memory spikes.
+
+Input files:
+enriched_emails_{YYYY_MM}.csv
+
+sna_metrics.csv
+Output files:
+
+insights_{YYYY_MM}.csv
+Columns: node_id, anomaly_score, community_id, influence_score, burnout_prob, burnout_label
+
+insight_summary.json
+Aggregate stats: e.g. total_anomalies, top_influencers, high_burnout_count
+
+Memory strategy:
+Process each month’s enriched file in chunks;
+Incrementally update Isolation Forest, DBSCAN, Louvain, XGBoost;
+Append per-month insights to partitioned CSVs.
+
+7. Interactive Visualization
+Purpose: Produce partitioned data bundles and config for Power BI Python visuals.
+
+Input files:
+sentiment_scores_{YYYY_MM}.csv
+
+sna_metrics.csv
+insights_{YYYY_MM}.csv
+
+Output files:
+dashboard_data_{YYYY_MM}.csv
+Combined per-node table for each month
+
+visual_config.json
+Filter defaults, layout settings
+
+powerbi_dashboard.py
+Python script reading month-files and rendering Plotly/Seaborn charts
+
+Memory strategy:
+Merge chunked inputs per partition on disk;
+Keep each dashboard CSV small enough for streaming into Power BI.
