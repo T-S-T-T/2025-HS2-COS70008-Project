@@ -76,6 +76,9 @@ def parse_email_file(path: Path) -> dict:
 # ——— MAIN ———————————————————————————————————————————
 
 def main():
+
+    print("Running...")
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     records = []
@@ -104,6 +107,8 @@ def main():
 
     print(f"Processed {len(df)} emails → {PROCESSED_CSV}")
     print(f"Index written → {EMAIL_INDEX_JSON}")
+
+    print("Fninshed")
 
 if __name__ == "__main__":
     main()
