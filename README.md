@@ -258,3 +258,32 @@ Memory strategy:
 Generate each month’s dashboard CSV independently with chunksize.
 Keep chart-generation code streaming, reading only required slices of CSV.
 Leverage Power BI’s paging to load visuals on demand.
+
+## Draft 2
+
+i am creating a Social Network analysis for my project. in the project design, I have multiple modules in the workflow to go from a folder with multiple email files to a Power BI presentation. Here are the current modules: 
+
+Data Processing: 
+This is the first module in the project. this module takes in a folder of multiple emails and produces one or multiple files for the next modules 
+Next module: Sentimental Analysis 
+
+Sentimental Analysis: 
+Previous module: Data Processing Sentiment Analysis 
+applies VADER to assign tone and sentiment scores, enriching communication records. Next modules: Network Construction, Organizational Insights Network Construction: Previous module: Sentimental Analysis Network construction generates a graph consisting of nodes, edges, and weighted edges. 
+Next modules: Network Analysis, Network Graph Analysis 
+
+Network Analysis: 
+Previous module: Network Construction 
+Network analysis computes key SNA metrics, including degree, betweenness, clustering coefficient, PageRank, and density, aligning with the requirement for computation of core SNA measures. These metrics support an insights layer that enables anomaly detection, collaboration gap identification, influence mapping, and burnout risk monitoring, aligning directly with client-specified outcomes. 
+Next modules: Organizational Insights Network Graph Analysis: Previous module: Network Construction use data from Network Construction to generate Python plugins for Power BI Next modules: Interactive Visualization 
+
+Organizational Insights: 
+Previous module: Sentimental Analysis, Network Analysis 
+Machine learning models and graph algorithms generate higherlevel insights, including anomaly detection (Isolation Forest, DBSCAN), silo identification (Louvain algorithm), influence mapping (PageRank), and burnout prediction (XGBoost, Logistic Regression). 
+Next modules: Interactive Visualization 
+
+Interactive Visualization: 
+Previous modules: Organizational Insights, Network Graph Analysis 
+this is the final output of the project. this should be one or multiple files that can be put into Power BI for better visualization 
+
+Check to see if this design is valid for the project. i don't want to add more function to the project itself, but it can use different Python library. Also, I only want to use Python for this project, including the final output which will be put into Power BI. change, reduce, merge, split, increase the modules if needed. the most important thing to remember is that each module will have input and output files which will be used by other modules.
