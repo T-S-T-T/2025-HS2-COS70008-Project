@@ -4,19 +4,20 @@ SNA project for Unit COS70008 using Python
 The project consists of 7 modules
 
 ## Data Processing
-
+python -m DataProcessing.process_emails
 ## Sentimental Analysis
-
+python -m SentimentalAnalysis.analyze_sentiment
 ## Network Construction
-
+python -m NetworkConstruction.construct_network
 ## Network Analysis
-
+python -m NetworkAnalysis.analyze_network
 ## Network Graph Analysis
-
+python -m NetworkGraphAnalysis.analyze_graph
 ## Organizational Insights
-
+python -m OrganizationalInsight.derive_insights
 ## Interactive Visualization
-
+python -m InteractiveVisualization.visualize_dashboard
+## Power BI notes
 
 ## Draft
 
