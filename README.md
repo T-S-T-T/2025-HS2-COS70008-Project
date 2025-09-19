@@ -296,17 +296,11 @@ On-demand loading in Power BI: let Power BI page through large CSVs rather than 
 Purpose: Stream and parse raw Maildir emails into monthly CSV partitions and a JSON index.
 
 Functions:
-
 Recursively traverse data/maildir/; treat each file as an email blob.
-
 Parse RFC-822 headers: Message-ID, Date, From, To, Cc, Bcc, Subject.
-
 Extract and concatenate text/plain body parts.
-
 Normalize dates to ISO 8601; normalize address lists as semicolon-delimited strings.
-
 Partition by email month (YYYY_MM), appending to processed_emails_{YYYY_MM}.csv.
-
 Emit one JSON line per email to email_index.ndjson (mapping message_id to path).
 
 Python libraries: pathlib, os; email, email.utils; csv, json; datetime, regex
@@ -314,26 +308,24 @@ Python libraries: pathlib, os; email, email.utils; csv, json; datetime, regex
 Input: Folder data/maildir/ (arbitrary nesting; each file is one email)
 
 Output (under data/DataProcessing/):
+processed_emails_{YYYY_MM}.csv 
+• CSV headers: message_id,date,sender,recipients,cc,bcc,subject,body 
+• One file per month (~10–100 MB each)
 
-processed_emails_{YYYY_MM}.csv • CSV headers: message_id,date,sender,recipients,cc,bcc,subject,body • One file per month (~10–100 MB each)
-
-email_index.ndjson • One JSON line per email: {"message_id":"…","path":"maildir/.../file"}
+email_index.ndjson 
+• One JSON line per email: {"message_id":"…","path":"maildir/.../file"}
 
 Memory strategy: File-by-file streaming; append-only writes; NDJSON index written line by line.
+
 
 2. Sentiment Analysis
 Purpose: Enrich parsed emails with VADER sentiment scores via chunked processing.
 
 Functions:
-
 Read processed_emails_{YYYY_MM}.csv in chunks (e.g. 10 000 rows).
-
 Apply VADER to body → compute compound, neg, neu, pos.
-
 Assign sentiment_label based on compound thresholds.
-
 Append sentiment scores to sentiment_scores_{YYYY_MM}.csv.
-
 Merge original fields + sentiment columns → enriched_emails_{YYYY_MM}.csv.
 
 Python libraries: pandas; vaderSentiment (or nltk.sentiment.vader); numpy
@@ -341,10 +333,11 @@ Python libraries: pandas; vaderSentiment (or nltk.sentiment.vader); numpy
 Input (under data/DataProcessing/): processed_emails_{YYYY_MM}.csv
 
 Output (under data/SentimentalAnalysis/):
+sentiment_scores_{YYYY_MM}.csv 
+• CSV headers: message_id,compound,neg,neu,pos,sentiment_label
 
-sentiment_scores_{YYYY_MM}.csv • CSV headers: message_id,compound,neg,neu,pos,sentiment_label
-
-enriched_emails_{YYYY_MM}.csv • All original fields plus the five sentiment columns
+enriched_emails_{YYYY_MM}.csv 
+• All original fields plus the five sentiment columns
 
 Memory strategy: Chunked reads with pandas; incremental writes per chunk.
 
@@ -352,17 +345,11 @@ Memory strategy: Chunked reads with pandas; incremental writes per chunk.
 Purpose: Build node and edge lists by streaming enriched data and partitioning for scale.
 
 Functions:
-
 Stream enriched_emails_{YYYY_MM}.csv in chunks.
-
 Extract unique participants (sender + recipients + cc + bcc); emit each as one NDJSON line.
-
 For each email chunk, generate edges: one row per (sender → each recipient/cc/bcc).
-
 Partition edges by first character of source (A–Z, 0–9) into separate CSVs.
-
 Maintain in-memory counters per partition; flush periodically.
-
 Write network_meta.json listing partitions and global counts.
 
 Python libraries: pandas; networkx (for validation); json
@@ -370,12 +357,13 @@ Python libraries: pandas; networkx (for validation); json
 Input (under data/SentimentalAnalysis/): enriched_emails_{YYYY_MM}.csv
 
 Output (under data/NetworkConstruction/):
-
 network_nodes.ndjson • One line per node: {"node_id":"email@example.com","name":""}
 
-network_edges_{X}.csv (X ∈ A–Z0–9) • CSV headers: source,target,weight
+network_edges_{X}.csv (X ∈ A–Z0–9) 
+• CSV headers: source,target,weight
 
-network_meta.json • {"partitions":[…],"total_nodes":N,"total_edges":M}
+network_meta.json 
+• {"partitions":[…],"total_nodes":N,"total_edges":M}
 
 Memory strategy: Streaming reads; small in-memory counters per partition; dedupe nodes in batches.
 
@@ -420,17 +408,11 @@ Memory strategy: Graph stored in memory (fits ≤1 M edges); edges streamed part
 Purpose: Compute layout coordinates and package ready-to-use data files for Power BI network snapshots.
 
 Functions:
-
 Stream network_nodes.ndjson for node IDs.
-
 Optionally stream sna_metrics.csv for styling metadata.
-
 Build adjacency incrementally by streaming each network_edges_{X}.csv.
-
 Compute layout via networkx.spring_layout (or Barnes–Hut).
-
 If node count ≫ 100 k, sample a subgraph or apply incremental layout updates.
-
 Emit graph_layout_{YYYY_MM}.ndjson: one line per node with coordinates.
 
 Python libraries: networkx; numpy; json
@@ -439,7 +421,8 @@ Input: network_nodes.ndjson network_edges_{X}.csv sna_metrics.csv (optional)
 
 Output (under data/NetworkGraphAnalysis/):
 
-graph_layout_{YYYY_MM}.ndjson • Each line: {"node_id":"…","x":X,"y":Y}
+graph_layout_{YYYY_MM}.ndjson 
+• Each line: {"node_id":"…","x":X,"y":Y}
 
 Memory strategy: Streaming adjacency; subgraph sampling to bound memory.
 
@@ -482,38 +465,35 @@ Memory strategy: Chunked merges; partial_fit for incremental training; one full-
 Purpose: Produce flat CSV data files tailored for Power BI visuals—no Python scripting required in reports.
 
 Functions:
-
 Read monthly source data:
-
 sentiment_scores_{YYYY_MM}.csv
-
 sna_metrics.csv
-
 insights_{YYYY_MM}.csv
-
 graph_layout_{YYYY_MM}.ndjson
-
 For each month generate three CSVs under data/InteractiveVisualization/:
-
 timeseries_data_{YYYY_MM}.csv • Aggregate by day: date,avg_compound,total_emails
-
 burnout_bar_data_{YYYY_MM}.csv • Per node: node_id,burnout_prob,burnout_label
-
 network_snapshot_data_{YYYY_MM}.csv • Coordinates + metrics for scatter: node_id,x,y,anomaly_score,burnout_prob
-
 Write a master index JSON visual_config.json listing months and default filter settings.
 
 Python libraries: pandas; json
 
-Input: data/SentimentalAnalysis/sentiment_scores_{YYYY_MM}.csv data/NetworkAnalysis/sna_metrics.csv data/OrganizationalInsight/insights_{YYYY_MM}.csv data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
+Input: 
+data/SentimentalAnalysis/sentiment_scores_{YYYY_MM}.csv 
+data/NetworkAnalysis/sna_metrics.csv 
+data/OrganizationalInsight/insights_{YYYY_MM}.csv 
+data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
 
 Output (under data/InteractiveVisualization/):
 
-timeseries_data_{YYYY_MM}.csv • Headers: date,avg_compound,total_emails
+timeseries_data_{YYYY_MM}.csv 
+• Headers: date,avg_compound,total_emails
 
-burnout_bar_data_{YYYY_MM}.csv • Headers: node_id,burnout_prob,burnout_label
+burnout_bar_data_{YYYY_MM}.csv 
+• Headers: node_id,burnout_prob,burnout_label
 
-network_snapshot_data_{YYYY_MM}.csv • Headers: node_id,x,y,anomaly_score,burnout_prob
+network_snapshot_data_{YYYY_MM}.csv 
+• Headers: node_id,x,y,anomaly_score,burnout_prob
 
 visual_config.json
 
