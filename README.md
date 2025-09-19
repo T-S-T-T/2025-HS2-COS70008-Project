@@ -141,7 +141,8 @@ network_nodes.ndjson
 network_edges_{X}.csv (where X ∈ [A–Z0–9]) 
 • CSV headers = source,target,weight
 
-network_meta.json • {"partitions":[...],"total_nodes":N,"total_edges":M}
+network_meta.json 
+• {"partitions":[...],"total_nodes":N,"total_edges":M}
 
 Memory strategy
 Streaming reads: one chunk at a time.
@@ -236,6 +237,7 @@ Output Files (under data/NetworkGraphAnalysis/ and InteractiveVisualization)
 data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson 
 • One NDJSON line per node: {"node_id":…,"x":…,"y":…}
 
+(in contention)
 data/InteractiveVisualization/network_snapshot_{YYYY_MM}.csv 
 • Flat CSV for Power BI scatter: node_id,x,y,degree,pagerank,betweenness,clustering_coeff
 
