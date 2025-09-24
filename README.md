@@ -27,13 +27,23 @@ Next module: Sentimental Analysis
 
 Sentimental Analysis: 
 Previous module: Data Processing Sentiment Analysis 
-applies VADER to assign tone and sentiment scores, enriching communication records. Next modules: Network Construction, Organizational Insights Network Construction: Previous module: Sentimental Analysis Network construction generates a graph consisting of nodes, edges, and weighted edges. 
+applies VADER to assign tone and sentiment scores, enriching communication records. 
+Next modules: Network Construction, Organizational Insights 
+
+Network Construction: 
+Previous module: Sentimental Analysis 
+Network construction generates a graph consisting of nodes, edges, and weighted edges. 
 Next modules: Network Analysis, Network Graph Analysis 
 
 Network Analysis: 
 Previous module: Network Construction 
 Network analysis computes key SNA metrics, including degree, betweenness, clustering coefficient, PageRank, and density, aligning with the requirement for computation of core SNA measures. These metrics support an insights layer that enables anomaly detection, collaboration gap identification, influence mapping, and burnout risk monitoring, aligning directly with client-specified outcomes. 
-Next modules: Organizational Insights Network Graph Analysis: Previous module: Network Construction use data from Network Construction to generate Python plugins for Power BI Next modules: Interactive Visualization 
+Next modules: Organizational Insights 
+
+Network Graph Analysis: 
+Previous module: Network Construction 
+use data from Network Construction to generate Python plugins for Power BI 
+Next modules: Interactive Visualization 
 
 Organizational Insights: 
 Previous module: Sentimental Analysis, Network Analysis 
