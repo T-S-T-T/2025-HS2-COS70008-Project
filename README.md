@@ -54,6 +54,9 @@ Interactive Visualization:
 Previous modules: Organizational Insights, Network Graph Analysis 
 this is the final output of the project. this should be one or multiple files that can be put into Power BI for better visualization 
 
+Each module's code must be inside its designated folder. For example, Sentimental Analysis:
+The code must be inside the folder "/SentimentalAnalysis". Then input files for the module can be found in "../data/DataProcessing". The output files must be put into "../data/SentimentalAnalysis"
+
 
 ## Draft 2
 
@@ -62,7 +65,7 @@ this is the final output of the project. this should be one or multiple files th
 Purpose: Stream and parse raw Maildir emails into monthly CSV partitions and a line-delimited index for downstream modules.
 
 Functions
-Recursively traverse data/maildir/; treat every file as an email blob.
+Recursively traverse ../data/maildir/; treat every file as an email blob.
 Parse RFC-822 headers: Message-ID, Date, From, To, Cc, Bcc, Subject.
 Extract and concatenate text/plain body parts.
 Normalize dates to ISO 8601; normalize address lists (semicolon-delimited).
@@ -76,11 +79,11 @@ csv, json
 datetime, regex
 
 Input files
-Folder: data/maildir/ 
+Folder: ../data/maildir/ 
 • Structure: arbitrary nesting; each file is one email 
 • Memory: streaming via Path.rglob()
 
-Output files (under data/DataProcessing/)
+Output files (under ../data/DataProcessing/)
 processed_emails_{YYYY_MM}.csv 
 • Format: CSV; headers = message_id,date,sender,recipients,cc,bcc,subject,body 
 • Partition: one file per month (e.g. processed_emails_2000_07.csv) 
@@ -110,10 +113,10 @@ pandas
 vaderSentiment or nltk.sentiment.vader
 numpy
 
-Input files (under data/DataProcessing/)
+Input files (under ../data/DataProcessing/)
 processed_emails_{YYYY_MM}.csv
 
-Output files (under data/SentimentalAnalysis/)
+Output files (under ../data/SentimentalAnalysis/)
 sentiment_scores_{YYYY_MM}.csv 
 • CSV headers = message_id,compound,neg,neu,pos,sentiment_label
 
@@ -141,10 +144,10 @@ pandas
 networkx (for validation)
 json
 
-Input files (under data/SentimentalAnalysis/)
+Input files (under ../data/SentimentalAnalysis/)
 enriched_emails_{YYYY_MM}.csv
 
-Output files (under data/NetworkConstruction/)
+Output files (under ../data/NetworkConstruction/)
 network_nodes.ndjson 
 • Each line: {"node_id":"email@example.com","name":""}
 
@@ -180,11 +183,11 @@ networkx
 pandas
 json
 
-Input files (under data/NetworkConstruction/)
+Input files (under ../data/NetworkConstruction/)
 network_nodes.ndjson
 network_edges_{X}.csv
 
-Output files (under data/NetworkAnalysis/)
+Output files (under ../data/NetworkAnalysis/)
 sna_metrics.csv 
 • Headers = node_id,degree,betweenness,clustering_coeff,pagerank
 
@@ -229,7 +232,7 @@ Emit NDJSON per month
 
 Produce flat snapshot CSV 
 • Immediately after layout, join each node’s x,y with any loaded metrics into a small pandas DataFrame 
-• Write network_snapshot_{YYYY_MM}.csv under data/InteractiveVisualization/ with headers: node_id,x,y,degree,pagerank,betweenness,clustering_coeff
+• Write network_snapshot_{YYYY_MM}.csv under ../data/InteractiveVisualization/ with headers: node_id,x,y,degree,pagerank,betweenness,clustering_coeff
 • This CSV is tailored for Power BI’s Scatter chart visual
 
 Python libraries
@@ -239,19 +242,19 @@ pandas (for metrics‐merge & final CSV)
 json
 
 Input Files
-data/NetworkConstruction/network_nodes.ndjson
-data/NetworkConstruction/network_edges_{X}.csv (one file per partition)
-data/NetworkAnalysis/sna_metrics.csv (optional styling metadata)
+../data/NetworkConstruction/network_nodes.ndjson
+../data/NetworkConstruction/network_edges_{X}.csv (one file per partition)
+../data/NetworkAnalysis/sna_metrics.csv (optional styling metadata)
 
-Output Files (under data/NetworkGraphAnalysis/ and InteractiveVisualization)
-data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson 
+Output Files (under ../data/NetworkGraphAnalysis/ and InteractiveVisualization)
+../data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson 
 • One NDJSON line per node: {"node_id":…,"x":…,"y":…}
 
 (in contention)
-data/InteractiveVisualization/network_snapshot_{YYYY_MM}.csv 
+../data/InteractiveVisualization/network_snapshot_{YYYY_MM}.csv 
 • Flat CSV for Power BI scatter: node_id,x,y,degree,pagerank,betweenness,clustering_coeff
 
-(Optional) data/NetworkGraphAnalysis/layout_meta_{YYYY_MM}.json 
+(Optional) ../data/NetworkGraphAnalysis/layout_meta_{YYYY_MM}.json 
 • Metadata about layout run: node count, subgraph flag, algorithm, timestamp
 
 Memory strategy
@@ -284,11 +287,11 @@ xgboost
 networkx
 numpy, json
 
-Input files (under data/SentimentalAnalysis/ & data/NetworkAnalysis/)
+Input files (under ../data/SentimentalAnalysis/ & ../data/NetworkAnalysis/)
 enriched_emails_{YYYY_MM}.csv
 sna_metrics.csv
 
-Output files (under data/OrganizationalInsight/)
+Output files (under ../data/OrganizationalInsight/)
 insights_{YYYY_MM}.csv 
 • Headers = node_id,anomaly_score,dbscan_label,community_id,influence_flag,burnout_prob,burnout_label
 
@@ -305,10 +308,10 @@ Purpose: Produce flat, per-month CSV data files and a JSON index that Power BI c
 
 Functions
 Load source data per month
--Stream sentiment scores: data/SentimentalAnalysis/sentiment_scores_{YYYY_MM}.csv
--Load global network metrics: data/NetworkAnalysis/sna_metrics.csv (only once)
--Read organizational insights: data/OrganizationalInsight/insights_{YYYY_MM}.csv
--Stream layout coordinates: data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
+-Stream sentiment scores: ../data/SentimentalAnalysis/sentiment_scores_{YYYY_MM}.csv
+-Load global network metrics: ../data/NetworkAnalysis/sna_metrics.csv (only once)
+-Read organizational insights: ../data/OrganizationalInsight/insights_{YYYY_MM}.csv
+-Stream layout coordinates: ../data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
 Generate time-series CSV (timeseries_data_{YYYY_MM}.csv)
 -Read sentiment_scores_{YYYY_MM}.csv in chunks (e.g. 10 000 rows)
 -Convert each email’s date to YYYY-MM-DD
@@ -316,7 +319,7 @@ Generate time-series CSV (timeseries_data_{YYYY_MM}.csv)
 --date
 --avg_compound = mean of compound scores
 --total_emails = count of messages
--Write one flat CSV under data/InteractiveVisualization/
+-Write one flat CSV under ../data/InteractiveVisualization/
 Generate burnout-bar CSV (burnout_bar_data_{YYYY_MM}.csv)
 -Read insights_{YYYY_MM}.csv entirely (small per-month file)
 -Select per-node columns:
@@ -352,12 +355,12 @@ pandas (streaming, aggregation, CSV I/O)
 json (write visual_config.json)
 
 Input files
-data/SentimentalAnalysis/sentiment_scores_{YYYY_MM}.csv
-data/NetworkAnalysis/sna_metrics.csv
-data/OrganizationalInsight/insights_{YYYY_MM}.csv
-data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
+../data/SentimentalAnalysis/sentiment_scores_{YYYY_MM}.csv
+../data/NetworkAnalysis/sna_metrics.csv
+../data/OrganizationalInsight/insights_{YYYY_MM}.csv
+../data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
 
-Output files (under data/InteractiveVisualization/)
+Output files (under ../data/InteractiveVisualization/)
 timeseries_data_{YYYY_MM}.csv
 • Headers = date,avg_compound,total_emails
 
