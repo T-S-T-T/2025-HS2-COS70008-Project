@@ -383,6 +383,8 @@ Flat outputs: Emit lean CSVs tailored to each Power BI visual—no post-processi
 
 8. Final power BI visualization
 
+This uses power BI desktop.
+
 1. Overview Page
 Purpose: Introduce the project, objectives, and scope.
 Visuals:
