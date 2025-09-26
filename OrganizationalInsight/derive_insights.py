@@ -25,8 +25,8 @@ DBSCAN_EPS          = 0.5
 DBSCAN_MIN_SAMPLES  = 5
 
 # Rolling-window settings for IsolationForest
-WINDOW_MONTHS       = 3         # number of past months to include in fit
-MAX_BUFFER_ROWS     = 500_000   # cap total rows kept in buffer for memory
+WINDOW_MONTHS       = 3
+MAX_BUFFER_ROWS     = 500_000
 
 # Burnout models
 sgd_model      = SGDClassifier(loss="log_loss", max_iter=1, warm_start=True)
@@ -48,7 +48,6 @@ df_global = pd.read_csv(METRICS_PATH, index_col="node_id")
 
 # ——— COMMUNITY DETECTION (RUN ONCE) —————————————————
 
-# Build full undirected graph and compute Louvain communities
 G_full = nx.Graph()
 with open(NODE_PATH, "r", encoding="utf-8") as fh:
     for line in fh:
@@ -56,10 +55,9 @@ with open(NODE_PATH, "r", encoding="utf-8") as fh:
         G_full.add_node(nid)
 
 for ef in sorted(EDGE_DIR.glob("network_edges_*.csv")):
-    # Stream in chunks to avoid peak memory
     for chunk in pd.read_csv(ef, chunksize=CHUNK_SIZE):
         for _, r in chunk.iterrows():
-            G_full.add_edge(r["source"], r["target"], weight=r["weight"])
+            G_full.add_edge(r["source"], r["target"], weight=r.get("weight", 1.0))
 
 partition = community_louvain.best_partition(G_full.to_undirected())
 num_communities = len(set(partition.values()))
@@ -75,9 +73,7 @@ def main():
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Rolling feature buffer for IsolationForest (deque of DataFrames)
     iso_buffer = deque(maxlen=WINDOW_MONTHS)
-    buffered_row_count = 0
 
     summary = {
         "total_anomalies": 0,
@@ -86,7 +82,6 @@ def main():
         "top_influencers": list(top_influencers)
     }
 
-    # Process months in order
     for email_csv in sorted(EMAIL_DIR.glob("enriched_emails_*.csv")):
         month         = email_csv.stem.replace("enriched_emails_", "")
         insights_path = OUTPUT_DIR / f"insights_{month}.csv"
@@ -94,22 +89,29 @@ def main():
         # 1) Feature engineering: per-sender volume & avg sentiment (streamed)
         feats = {}
         for chunk in pd.read_csv(email_csv, chunksize=CHUNK_SIZE):
-            # aggregate by sender
+            # Ensure proper types before aggregation
+            if "sender" not in chunk.columns or "compound" not in chunk.columns:
+                raise ValueError(f"Expected columns 'sender' and 'compound' in {email_csv}")
+            chunk["sender"]   = chunk["sender"].fillna("").astype(str)
+            chunk["compound"] = pd.to_numeric(chunk["compound"], errors="coerce")
+
             grp = (
                 chunk.groupby("sender")["compound"]
                      .agg(volume="count", avg_sentiment="mean")
                      .reset_index()
             )
-            # merge into running dict
+
             for row in grp.itertuples(index=False):
-                sid, vol, avg_s = row.sender, int(row.volume), float(row.avg_sentiment)
+                sid, vol, avg_s = row.sender, int(row.volume), float(row.avg_sentiment) if pd.notna(row.avg_sentiment) else 0.0
                 prev = feats.get(sid)
                 if prev is None:
                     feats[sid] = {"volume": vol, "avg_sentiment": avg_s}
                 else:
                     tot = prev["volume"] + vol
-                    # weighted mean for running average
-                    combined_avg = (prev["avg_sentiment"] * prev["volume"] + avg_s * vol) / max(tot, 1)
+                    combined_avg = (
+                        (prev["avg_sentiment"] * prev["volume"] + avg_s * vol) / max(tot, 1)
+                        if tot > 0 else 0.0
+                    )
                     feats[sid] = {"volume": tot, "avg_sentiment": combined_avg}
 
         df_feat = (
@@ -118,7 +120,7 @@ def main():
               .reset_index()
         )
 
-        # 2) Merge with global SNA metrics (includes indegree/outdegree)
+        # 2) Merge with global SNA metrics
         df_merged = (
             df_feat.merge(df_global, how="left", left_on="node_id", right_index=True)
                    .fillna(0)
@@ -128,7 +130,6 @@ def main():
         # 3a) IsolationForest (rolling-window fit; score current month only)
         X_curr_iso = df_merged[ISO_FEATURES].values
 
-        # Construct fit matrix from buffer + current, bounded by MAX_BUFFER_ROWS
         fit_frames = list(iso_buffer) + [df_merged[ISO_FEATURES]]
         X_fit_iso = pd.concat(fit_frames, axis=0)
         if len(X_fit_iso) > MAX_BUFFER_ROWS:
@@ -142,9 +143,7 @@ def main():
         anomalies_this_month = int((df_merged["anomaly_label"] == -1).sum())
         summary["total_anomalies"] += anomalies_this_month
 
-        # Update rolling buffer
         iso_buffer.append(df_merged[ISO_FEATURES])
-        buffered_row_count = min(buffered_row_count + len(df_merged), MAX_BUFFER_ROWS)
 
         # 3b) DBSCAN per month (simple 2D feature space)
         db = DBSCAN(eps=DBSCAN_EPS, min_samples=DBSCAN_MIN_SAMPLES)
@@ -157,7 +156,6 @@ def main():
 
         # 5) Burnout prediction (SGD "logistic" + XGBoost)
         X_feat   = df_merged[BURNOUT_FEATURES].values
-        # Proxy label: anomalies as burnout risk (if no ground truth)
         y_target = (df_merged["anomaly_label"] == -1).astype(int).values
 
         # 5a) LogisticRegression via partial_fit (SGDClassifier)
@@ -168,10 +166,9 @@ def main():
             sgd_model.partial_fit(X_feat, y_target)
         prob_lr = sgd_model.predict_proba(X_feat)[:, 1]
 
-        # 5b) XGBoost (retrained per month; no true partial_fit)
+        # 5b) XGBoost (retrained per month; guard against single-class)
         if len(np.unique(y_target)) < 2:
-            # Avoid XGBoost crash when only one class present
-            prob_xgb = np.zeros_like(prob_lr)  # or prob_lr.copy()
+            prob_xgb = np.zeros_like(prob_lr)
         else:
             if xgb_model is None:
                 xgb_model = XGBClassifier(eval_metric="logloss", use_label_encoder=False, base_score=0.5)
