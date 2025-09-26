@@ -57,6 +57,8 @@ this is the final output of the project. this should be one or multiple files th
 Each module's code must be inside its designated folder. For example, Sentimental Analysis:
 The code must be inside the folder "/SentimentalAnalysis". Then input files for the module can be found in "../data/DataProcessing". The output files must be put into "../data/SentimentalAnalysis"
 
+The Repo exclude the folder /data because it only contains the source data, input, output files. each member has to create their own folder /data on their local machine
+
 
 ## Draft 2
 
