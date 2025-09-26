@@ -137,11 +137,13 @@ Extract unique participants (sender + recipients + cc + bcc); emit each as one N
 For each email chunk, generate edges: one row per (sender → each recipient/cc/bcc).
 Partition edges by first character of source (A–Z, 0–9) into separate CSVs.
 Maintain in-memory counters per partition; flush periodically.
-Write network_meta.json listing partitions and global counts.
+Write network_meta.json listing partitions and both edge counts:
+- total_edges_unique = number of distinct (source, target) pairs.
+- total_edges_weighted = sum of all edge weights (total emails).
 
 Python libraries
 pandas
-networkx (for validation)
+networkx (for validation) (optional)
 json
 
 Input files (under ../data/SentimentalAnalysis/)
@@ -155,7 +157,7 @@ network_edges_{X}.csv (where X ∈ [A–Z0–9])
 • CSV headers = source,target,weight
 
 network_meta.json 
-• {"partitions":[...],"total_nodes":N,"total_edges":M}
+• {"partitions":[...],"total_nodes":N,"total_edges":M,"total_edges_weighted": W}
 
 Memory strategy
 Streaming reads: one chunk at a time.
@@ -250,11 +252,10 @@ Output Files (under ../data/NetworkGraphAnalysis/ and InteractiveVisualization)
 ../data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson 
 • One NDJSON line per node: {"node_id":…,"x":…,"y":…}
 
-(in contention)
 ../data/InteractiveVisualization/network_snapshot_{YYYY_MM}.csv 
 • Flat CSV for Power BI scatter: node_id,x,y,degree,pagerank,betweenness,clustering_coeff
 
-(Optional) ../data/NetworkGraphAnalysis/layout_meta_{YYYY_MM}.json 
+../data/NetworkGraphAnalysis/layout_meta_{YYYY_MM}.json 
 • Metadata about layout run: node count, subgraph flag, algorithm, timestamp
 
 Memory strategy
