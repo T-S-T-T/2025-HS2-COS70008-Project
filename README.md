@@ -160,7 +160,7 @@ network_edges_{X}.csv (where X ∈ [A–Z0–9])
 • CSV headers = source,target,weight
 
 network_meta.json 
-• {"partitions":[...],"total_nodes":N,"total_edges":M,"total_edges_weighted": W}
+• {"partitions":[...],"total_nodes":N,"total_edges_unique":M,"total_edges_weighted": W}
 
 Memory strategy
 Streaming reads: one chunk at a time.
