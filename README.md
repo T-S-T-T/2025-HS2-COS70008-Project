@@ -391,11 +391,14 @@ This uses power BI desktop. The file is under /PowerBI
 -- Text box with the Project Overview and Objectives (from your requirement).
 -- KPI cards showing:
 --- Total nodes (from network_meta.json)
---- Total unique edges and weighted edges (from network_meta.json)
+--- Total unique edges (from network_meta.json)
+--- Weighted edges (from network_meta.json)
+--- Network density (from network_density.json)
 --- Number of communities (from insight_summary.json)
 -- A slicer for Month (based on available months in visual_config.json).
 Required files:
 - network_meta.json
+- network_density.json
 - insight_summary.json
 - visual_config.json
 
