@@ -271,15 +271,16 @@ Purpose: Derive anomalies, detect silos, map influence, and predict burnout via 
 
 Functions
 Stream-merge each month’s enriched_emails_{YYYY_MM}.csv with global sna_metrics.csv by node_id.
-Feature engineering: volume, centrality, sentiment aggregates.
+Feature engineering: per-sender volume, sentiment aggregates, and centrality metrics (indegree, outdegree, betweenness, clustering_coeff, pagerank).
 Anomaly detection:
 • Train/apply IsolationForest in a rolling-window fashion.
 • Apply DBSCAN per month to flag communication outliers.
 Community detection: run Louvain once on the full graph to assign community_id.
 Influence mapping: threshold PageRank for top influencers.
 Burnout prediction: train/apply XGBoost + LogisticRegression via partial_fit on streaming feature batches.
-Append per-month insights to insights_{YYYY_MM}.csv.
-Summarize across all months in insight_summary.json.
+Outputs:
+- Append per-month insights to insights_{YYYY_MM}.csv.
+- Summarize across all months in insight_summary.json.
 
 Python libraries
 pandas
