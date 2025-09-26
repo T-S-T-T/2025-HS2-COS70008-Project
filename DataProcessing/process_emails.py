@@ -10,10 +10,10 @@ BASE_ROOT = PROJECT_ROOT.parent   # move one more folder up from PROJECT_ROOT
 DATA_ROOT = BASE_ROOT / "data"   # data folder
 
 # test one user's input
-USER_FOLDER = "allen-p"   # select user
-EMAIL_FOLDER = "_sent_mail"   # select user's email folder
+# USER_FOLDER = "allen-p"   # select user
+# EMAIL_FOLDER = "_sent_mail"   # select user's email folder
 
-INPUT_DIR = DATA_ROOT / "maildir" / USER_FOLDER / EMAIL_FOLDER   # data/maildir
+INPUT_DIR = DATA_ROOT / "maildir"  # data/maildir
 OUTPUT_DIR = DATA_ROOT / "DataProcessing"   # data/DataProcessing
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)   # create it if it doesn’t exist
 
