@@ -18,7 +18,7 @@ python -m OrganizationalInsight.derive_insights
 ## Interactive Visualization
 python -m InteractiveVisualization.visualize_dashboard
 ## Power BI notes
-None
+The whole file is made of 6 section. for more information, go to Trello
 
 ## Draft
 
