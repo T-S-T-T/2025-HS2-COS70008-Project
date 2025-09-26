@@ -379,3 +379,92 @@ Chunked reads: Use pd.read_csv(..., chunksize=10000) for large sentiment files.
 Streaming NDJSON: Read graph_layout_{YYYY_MM}.ndjson line by line to avoid loading entire layout.
 Lightweight merges: Only join minimal columns for each output, then discard intermediate DataFrames.
 Flat outputs: Emit lean CSVs tailored to each Power BI visual—no post-processing needed in Power BI.
+
+8. Final power BI visualization
+
+1. Overview Page
+Purpose: Introduce the project, objectives, and scope.
+Visuals:
+Text box with the Project Overview and Objectives (from your requirement).
+KPI cards showing:
+Total nodes (from network_meta.json)
+Total unique edges and weighted edges (from network_meta.json)
+Number of communities (from insight_summary.json)
+A slicer for Month (based on available months in visual_config.json).
+Required files:
+network_meta.json
+insight_summary.json
+visual_config.json
+
+2. Communication Trends (Time Series)
+Purpose: Show how sentiment and communication volume evolve over time.
+Visuals:
+Line chart: date on X, avg_compound on Y (from timeseries_data_{YYYY_MM}.csv).
+Column chart: date on X, total_emails on Y.
+Dual-axis chart combining both for richer context.
+Filters: Month slicer.
+Required files:
+timeseries_data_{YYYY_MM}.csv
+
+3. Burnout Risk Dashboard
+Purpose: Highlight individuals at risk of burnout.
+Visuals:
+Bar chart: node_id on X, burnout_prob on Y (from burnout_bar_data_{YYYY_MM}.csv).
+Conditional formatting: color bars by burnout_label (0 = low risk, 1 = high risk).
+KPI card: Total high-burnout nodes (from insight_summary.json).
+Filters: Month slicer, community filter.
+Required files:
+burnout_bar_data_{YYYY_MM}.csv
+insight_summary.json
+
+4. Network Snapshot
+Purpose: Visualize the network structure, anomalies, and burnout risk.
+Visuals:
+Scatter plot:
+X = x, Y = y (from layout coordinates).
+Size = burnout_prob.
+Color = anomaly_score (continuous scale).
+Tooltip = node_id.
+Slicer: Influence flag (from insights_{YYYY_MM}.csv).
+Filters: Month slicer.
+Required files:
+network_snapshot_data_{YYYY_MM}.csv
+
+5. Organizational Insights
+Purpose: Summarize anomalies, silos, influencers, and communities.
+Visuals:
+KPI cards:
+Total anomalies (from insight_summary.json)
+Number of communities
+Top influencers (list from insight_summary.json)
+Table: node_id, community_id, influence_flag, burnout_label (from insights_{YYYY_MM}.csv).
+Matrix: Community vs. average burnout probability.
+Required files:
+insights_{YYYY_MM}.csv
+insight_summary.json
+6. Advanced Metrics (Optional)
+Purpose: Provide deeper SNA metrics for exploration.
+Visuals:
+Table: node_id, indegree, outdegree, betweenness, clustering_coeff, pagerank (from sna_metrics.csv).
+Histogram: Distribution of PageRank.
+Scatter: indegree vs. outdegree (to spot broadcasters vs. receivers).
+Required files:
+sna_metrics.csv
+
+Bonus. Required Output Data Files for Power BI
+From your 7 modules, the following files are needed:
+Module 3 (Network Construction):
+network_meta.json
+Module 4 (Network Analysis):
+sna_metrics.csv
+network_density.json (optional KPI)
+Module 5 (Network Graph Analysis):
+graph_layout_{YYYY_MM}.ndjson (used to build snapshots, but already converted in Module 7)
+Module 6 (Organizational Insights):
+insights_{YYYY_MM}.csv
+insight_summary.json
+Module 7 (Interactive Visualization):
+timeseries_data_{YYYY_MM}.csv
+burnout_bar_data_{YYYY_MM}.csv
+network_snapshot_data_{YYYY_MM}.csv
+visual_config.json
