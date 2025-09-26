@@ -172,11 +172,12 @@ Functions
 Load network_nodes.ndjson (small) to add nodes to a NetworkX graph.
 For each network_edges_{X}.csv partition: stream rows, add weighted edges.
 Compute metrics:
-• Degree centrality
-• Betweenness centrality
-• Clustering coefficient
-• PageRank
-• Global network density
+- In‑degree centrality (how many unique incoming connections a node has).
+- Out‑degree centrality (how many unique outgoing connections a node has).
+- Betweenness centrality (who acts as a bridge).
+- Clustering coefficient (tightness of groups).
+- PageRank (influence ranking).
+- Global network density (overall connectedness).
 Write node metrics to sna_metrics.csv.
 Write density to network_density.json.
 
@@ -191,7 +192,7 @@ network_edges_{X}.csv
 
 Output files (under ../data/NetworkAnalysis/)
 sna_metrics.csv 
-• Headers = node_id,degree,betweenness,clustering_coeff,pagerank
+• Headers = node_id,indegree,outdegree,betweenness,clustering_coeff,pagerank
 
 network_density.json 
 • {"density":float}
