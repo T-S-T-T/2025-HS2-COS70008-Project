@@ -438,7 +438,6 @@ Required files:
 - Visuals:
 -- KPI cards:
 --- Total anomalies (from insight_summary.json)
---- Number of communities
 --- Top influencers (list from insight_summary.json)
 -- Table: node_id, community_id, influence_flag, burnout_label (from insights_{YYYY_MM}.csv).
 -- Matrix: Community vs. average burnout probability.
