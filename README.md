@@ -463,7 +463,7 @@ Bonus. Required Output Data Files for Power BI
 --- network_meta.json
 -- Module 4 (Network Analysis):
 --- sna_metrics.csv
---- network_density.json (optional KPI)
+--- network_density.json
 -- Module 5 (Network Graph Analysis):
 --- graph_layout_{YYYY_MM}.ndjson (used to build snapshots, but already converted in Module 7)
 -- Module 6 (Organizational Insights):
