@@ -18,6 +18,7 @@ python -m OrganizationalInsight.derive_insights
 ## Interactive Visualization
 python -m InteractiveVisualization.visualize_dashboard
 ## Power BI notes
+None
 
 ## Draft
 
@@ -385,23 +386,23 @@ Flat outputs: Emit lean CSVs tailored to each Power BI visual—no post-processi
 1. Overview Page
 Purpose: Introduce the project, objectives, and scope.
 Visuals:
-Text box with the Project Overview and Objectives (from your requirement).
+- Text box with the Project Overview and Objectives (from your requirement).
 KPI cards showing:
-Total nodes (from network_meta.json)
-Total unique edges and weighted edges (from network_meta.json)
-Number of communities (from insight_summary.json)
-A slicer for Month (based on available months in visual_config.json).
+- Total nodes (from network_meta.json)
+- Total unique edges and weighted edges (from network_meta.json)
+- Number of communities (from insight_summary.json)
+- A slicer for Month (based on available months in visual_config.json).
 Required files:
-network_meta.json
-insight_summary.json
-visual_config.json
+- network_meta.json
+- insight_summary.json
+- visual_config.json
 
 2. Communication Trends (Time Series)
 Purpose: Show how sentiment and communication volume evolve over time.
 Visuals:
-Line chart: date on X, avg_compound on Y (from timeseries_data_{YYYY_MM}.csv).
-Column chart: date on X, total_emails on Y.
-Dual-axis chart combining both for richer context.
+- Line chart: date on X, avg_compound on Y (from timeseries_data_{YYYY_MM}.csv).
+- Column chart: date on X, total_emails on Y.
+- Dual-axis chart combining both for richer context.
 Filters: Month slicer.
 Required files:
 timeseries_data_{YYYY_MM}.csv

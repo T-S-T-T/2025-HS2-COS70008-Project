@@ -169,10 +169,14 @@ def main():
         prob_lr = sgd_model.predict_proba(X_feat)[:, 1]
 
         # 5b) XGBoost (retrained per month; no true partial_fit)
-        if xgb_model is None:
-            xgb_model = XGBClassifier(use_label_encoder=False, eval_metric="logloss")
-        xgb_model.fit(X_feat, y_target)
-        prob_xgb = xgb_model.predict_proba(X_feat)[:, 1]
+        if len(np.unique(y_target)) < 2:
+            # Avoid XGBoost crash when only one class present
+            prob_xgb = np.zeros_like(prob_lr)  # or prob_lr.copy()
+        else:
+            if xgb_model is None:
+                xgb_model = XGBClassifier(eval_metric="logloss", use_label_encoder=False, base_score=0.5)
+            xgb_model.fit(X_feat, y_target)
+            prob_xgb = xgb_model.predict_proba(X_feat)[:, 1]
 
         # Combine probabilities
         df_merged["burnout_prob"]  = (prob_lr + prob_xgb) / 2.0
