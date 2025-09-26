@@ -316,12 +316,9 @@ Load source data per month
 -Read organizational insights: ../data/OrganizationalInsight/insights_{YYYY_MM}.csv
 -Stream layout coordinates: ../data/NetworkGraphAnalysis/graph_layout_{YYYY_MM}.ndjson
 Generate time-series CSV (timeseries_data_{YYYY_MM}.csv)
--Read sentiment_scores_{YYYY_MM}.csv in chunks (e.g. 10 000 rows)
+-Read enriched_emails_{YYYY_MM}.csv in chunks (e.g. 10 000 rows)
 -Convert each email’s date to YYYY-MM-DD
--Aggregate by day:
---date
---avg_compound = mean of compound scores
---total_emails = count of messages
+-Aggregate avg_compound and total_emails by day
 -Write one flat CSV under ../data/InteractiveVisualization/
 Generate burnout-bar CSV (burnout_bar_data_{YYYY_MM}.csv)
 -Read insights_{YYYY_MM}.csv entirely (small per-month file)
