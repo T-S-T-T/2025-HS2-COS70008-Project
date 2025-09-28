@@ -12,7 +12,7 @@ python -m NetworkConstruction.construct_network
 ## Network Analysis
 python -m NetworkAnalysis.analyze_network
 ## Network Graph Analysis
-python -m NetworkGraphAnalysis.analyze_graph
+python -m NetworkGraphAnalysis.network_graph_analysis_1
 ## Organizational Insights
 python -m OrganizationalInsight.derive_insights
 ## Interactive Visualization
