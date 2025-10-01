@@ -16,7 +16,7 @@ python -m NetworkGraphAnalysis.network_graph_analysis_1
 ## Organizational Insights
 python -m OrganizationalInsight.derive_insights
 ## Interactive Visualization
-python -m InteractiveVisualization.visualize_dashboard
+python -m InteractiveVisualization.interactive_visualization
 ## Power BI notes
 The whole file is made of 6 section. for more information, go to Trello
 
