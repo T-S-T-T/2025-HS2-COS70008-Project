@@ -151,7 +151,7 @@ def main():
         df_merged["dbscan_label"] = db.fit_predict(X_db)
 
         # 4) Community & influence mapping
-        df_merged["community_id"]   = df_merged["node_id"].map(partition).fillna(-1).astype(int)
+        df_merged["community_id"]   = df_merged["node_id"].map(partition.get).fillna(-1).astype(int)
         df_merged["influence_flag"] = df_merged["node_id"].isin(top_influencers)
 
         # 5) Burnout prediction (SGD "logistic" + XGBoost)
