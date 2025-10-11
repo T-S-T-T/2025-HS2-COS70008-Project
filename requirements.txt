@@ -1,0 +1,7 @@
+pandas
+networkx
+python-louvain
+xgboost
+scikit-learn
+vaderSentiment
+numpy
