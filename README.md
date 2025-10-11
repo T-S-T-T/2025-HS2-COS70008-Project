@@ -18,7 +18,45 @@ python -m OrganizationalInsight.derive_insights
 ## Interactive Visualization
 python -m InteractiveVisualization.interactive_visualization
 ## Power BI notes
-The whole file is made of 6 section. for more information, go to Trello
+The Power BI integration is manual at the moment
+
+## Running the whole project
+### Install needed libraries
+pip install -r requirements.txt
+### Run the Whole project
+(make sure the /data folder and maildir dataset is present)
+
+python run_pipeline.py
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Draft
 
