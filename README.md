@@ -3,6 +3,7 @@ SNA project for Unit COS70008 using Python
 
 The project consists of 7 modules
 
+Running individual sections
 ## Data Processing
 python -m DataProcessing.process_emails
 ## Sentimental Analysis
