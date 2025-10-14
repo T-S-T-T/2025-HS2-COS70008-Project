@@ -22,6 +22,7 @@ python -m InteractiveVisualization.interactive_visualization
 The Power BI integration is manual at the moment
 
 ## Running the whole project
+Download the code from GitHub ==> Make a /data folder in the root folder ==> put the /maildir enron email in /data ==> run the commands below
 ### Install needed libraries
 pip install -r requirements.txt
 ### Run the Whole project
