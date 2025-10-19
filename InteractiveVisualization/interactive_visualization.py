@@ -274,7 +274,6 @@ from pathlib import Path
 
 import pandas as pd
 
-# ——— CONFIGURATION ——————————————————————————
 
 BASE_DIR   = Path(__file__).resolve().parent.parent
 
@@ -285,9 +284,8 @@ NG_DIR     = BASE_DIR / "data" / "NetworkGraphAnalysis"
 OUT_DIR    = BASE_DIR / "data" / "InteractiveVisualization"
 
 CHUNK_SIZE = 10_000
-DATE_COL   = "date"  # adjust if your enriched_emails uses a different column name
+DATE_COL   = "date"
 
-# ——— HELPERS ———————————————————————————————
 
 def list_months():
     """Infer available months from insights files."""
@@ -300,17 +298,14 @@ def stream_layout(layout_path: Path):
             rec = json.loads(line)
             yield rec["node_id"], float(rec["x"]), float(rec["y"])
 
-# ——— MAIN —————————————————————————————————————
 
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Optional: load global metrics once (not required for outputs below)
     metrics_path = NA_DIR / "sna_metrics.csv"
     metrics_available = metrics_path.exists()
     if metrics_available:
         df_metrics = pd.read_csv(metrics_path).set_index("node_id")
-        # If needed, use df_metrics.loc[node_id, ...] later (not required for current outputs)
 
     months = list_months()
     visual_config = {
@@ -332,7 +327,6 @@ def main():
         if not enriched_path.exists():
             raise FileNotFoundError(f"Missing enriched emails for {month}: {enriched_path}")
 
-        # Aggregate by day: avg_compound (mean of compound), total_emails (count)
         day_sums = {}
         day_counts = {}
         for chunk in pd.read_csv(enriched_path, chunksize=CHUNK_SIZE, usecols=[DATE_COL, "compound"]):
@@ -346,7 +340,6 @@ def main():
             if df_tmp.empty:
                 continue
 
-            # Explicitly name columns to avoid attribute errors
             grp = df_tmp.groupby("day")["compound"].agg(sum_val="sum", count_val="count").reset_index()
 
             for r in grp.itertuples(index=False):

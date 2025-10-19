@@ -268,7 +268,6 @@ from datetime import datetime, timezone
 import pandas as pd
 import networkx as nx
 
-# ——— CONFIGURATION ——————————————————————————
 
 BASE_DIR       = Path(__file__).resolve().parent.parent
 NODE_PATH      = BASE_DIR / "data" / "NetworkConstruction" / "network_nodes.ndjson"
@@ -280,7 +279,6 @@ VIS_DIR        = BASE_DIR / "data" / "InteractiveVisualization"
 CHUNK_SIZE     = 10_000
 MAX_NODES      = 50_000  # threshold for subgraph sampling
 
-# ——— MAIN —————————————————————————————————————
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
