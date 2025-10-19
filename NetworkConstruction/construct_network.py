@@ -10,13 +10,6 @@ OUT_DIR = BASE_ROOT / "data" / "NetworkConstruction"     # network_edges_{X}.csv
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CHUNK = 25_000
-PARTITIONS = list(string.ascii_uppercase + string.digits) + ["misc"]
-
-def part_key(email_addr: str) -> str:
-    if not email_addr:
-        return "misc"
-    c = email_addr.strip()[:1].upper()
-    return c if c in string.ascii_uppercase + string.digits else "misc"
 
 def parse_list(val: str):
     """Parse semicolon-delimited recipient list into a clean list"""
@@ -31,20 +24,27 @@ def main():
         return
 
     # per-partition accumulator
-    agg = {p: defaultdict(lambda: {"w":0, "sum_c":0.0, "first":None, "last":None}) for p in PARTITIONS}
     nodes = set()
+    partitions = defaultdict(lambda: defaultdict(lambda: {"w": 0, "sum_c": 0.0}))
 
     usecols = ["date","sender","recipients","cc","bcc","compound"]
+
     for i, f in enumerate(files, 1):
         print(f"[{i}/{len(files)}] {f.name}")
         for chunk in pd.read_csv(f, usecols=usecols, chunksize=CHUNK):
-            chunk["date"] = chunk["date"].astype(str)
+            chunk["date"] = pd.to_datetime(chunk["date"], errors="coerce")
+
             for _, row in chunk.iterrows():
                 # --- sender ---
                 s = str(row.get("sender") or "").strip()
                 if not s:
                     continue
-                nodes.add(s)
+
+                # extract year_month
+                d = row.get("date")
+                if pd.isna(d):
+                    continue
+                ym = f"{d.year:04d}_{d.month:02d}"
 
                 # --- recipients ---
                 rcpts = (
@@ -53,60 +53,64 @@ def main():
                     parse_list(str(row.get("bcc") or ""))
                 )
                 if not rcpts:
-                    continue
+                    rcpts = ["null"]
 
                 # --- sentiment + date ---
                 try:
                     c = float(row.get("compound") or 0.0)
                 except Exception:
                     c = 0.0
-                d = str(row.get("date") or "")
+                
+                nodes.add(s)
 
                 # --- update edges ---
                 for t in set(rcpts):
                     t = str(t).strip()
                     if not t:
-                        continue
-                    nodes.add(t)
-                    pk = part_key(s)
-                    entry = agg[pk][(s,t)]
+                        t = "null"
+        
+                    if t.lower() not in {"null", "nan", "none"}:
+                        nodes.add(t)
+
+                    entry = partitions[ym][(s, t)]
                     entry["w"] += 1
                     entry["sum_c"] += c
-                    if not entry["first"] or (d and d < entry["first"]):
-                        entry["first"] = d
-                    if not entry["last"] or (d and d > entry["last"]):
-                        entry["last"] = d
 
-    # --- write edges (SPEC: network_edges_{X}.csv) ---
-    total_u, total_w = 0, 0
-    for p in PARTITIONS:
-        outp = OUT_DIR / f"network_edges_{p}.csv"
-        with open(outp, "w", encoding="utf-8", newline="") as fh:
+    # --- Write partitioned edge files ---
+    total_edges, total_weight = 0, 0
+    meta = {"partitions": []}
+
+    for ym, edges_dict in sorted(partitions.items()):
+        out_file = OUT_DIR / f"network_edges_{ym}.csv"
+        with open(out_file, "w", encoding="utf-8", newline="") as fh:
             w = csv.writer(fh)
-            w.writerow(["source","target","weight","mean_compound","first_seen","last_seen"])
-            for (src,tgt), e in agg[p].items():
-                mean_c = e["sum_c"]/e["w"] if e["w"] else 0.0
-                w.writerow([src, tgt, e["w"], f"{mean_c:.6f}", e["first"], e["last"]])
-                total_u += 1
-                total_w += e["w"]
+            w.writerow(["source", "target", "weight", "sentiment_avg", "year", "month"])
+            y, m = ym.split("_")
+            for (src, tgt), e in edges_dict.items():
+                mean_c = e["sum_c"] / e["w"] if e["w"] else 0.0
+                w.writerow([src, tgt, e["w"], f"{mean_c:.6f}", y, m])
+                total_edges += 1
+                total_weight += e["w"]
+        meta["partitions"].append(f"network_edges_{ym}.csv")
+        print(f"Saved {out_file.name} ({len(edges_dict)} edges)")
 
     # --- write nodes (SPEC: network_nodes.ndjson) ---
     with open(OUT_DIR / "network_nodes.ndjson", "w", encoding="utf-8") as nf:
         for n in sorted(nodes):
             nf.write(json.dumps({"node_id": n, "name": ""}) + "\n")
 
-    # --- write meta (SPEC: network_meta.json with 'partitions') ---
-    meta = {
-        "partitions": [f"network_edges_{p}.csv" for p in PARTITIONS],
+    # --- Write meta ---
+    meta.update({
         "total_nodes": len(nodes),
-        "total_edges_unique": total_u,
-        "total_edges_weighted": total_w
-    }
+        "total_edges_unique": total_edges,
+        "total_edges_weighted": total_weight
+    })
     with open(OUT_DIR / "network_meta.json", "w", encoding="utf-8") as mf:
         json.dump(meta, mf, indent=2)
 
-    print("✅ Edge partitions and metadata written (spec-compliant).")
-    print(f"nodes: {meta['total_nodes']} | edges_unique: {meta['total_edges_unique']} | edges_weighted: {meta['total_edges_weighted']}")
+    print("Year–Month partitions and metadata written successfully.")
+    print(f"Nodes: {meta['total_nodes']} | Edges (unique): {meta['total_edges_unique']} | Weighted total: {meta['total_edges_weighted']}")
+
 
 if __name__ == "__main__":
     main()

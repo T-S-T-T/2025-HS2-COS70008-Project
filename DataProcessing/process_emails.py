@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).parent.resolve()   # folder where this script is l
 BASE_ROOT = PROJECT_ROOT.parent   # move one more folder up from PROJECT_ROOT
 DATA_ROOT = BASE_ROOT / "data"   # data folder
 
-INPUT_DIR = DATA_ROOT / "maildir"  # data/maildir
+INPUT_DIR = DATA_ROOT / "maildir"    # data/maildir
 OUTPUT_DIR = DATA_ROOT / "DataProcessing"   # data/DataProcessing
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)   # create it if it doesn’t exist
 
@@ -52,6 +52,8 @@ class DataProcessor:
             if msg.get_content_type() == "text/plain":   # not multiple part
                 body_parts.append(msg.get_content().strip())
         return "\n".join(body_parts)
+
+
 
     def clean_body(self, text: str) -> str:
         """
@@ -125,7 +127,7 @@ class DataProcessor:
             out_file = self.output_dir / f"processed_emails_{partition}.csv"
 
         file_exists = out_file.exists()
-        fieldnames = ["message_id", "date", "sender", "recipients", "cc", "bcc", "subject", "body"]
+        fieldnames = ["file", "message_id", "date", "sender", "recipients", "cc", "bcc", "subject", "body"]
 
         with open(out_file, "a", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -143,11 +145,14 @@ class DataProcessor:
             json.dump(entry, f)
             f.write("\n")
 
-    def run(self):
+    def run(self, max_records=5000):
         """Process all emails and write outputs."""
         files = self.find_email_files(self.input_dir)
         count = 0
         for f in files:
+            if count >= max_records:
+                print(f"Reached limit of {max_records} emails. Stopping.")
+                break
             record = self.extract_headers(f)
             if record:
                 self.write_partitioned_csv(record)
@@ -164,5 +169,5 @@ class DataProcessor:
 
 if __name__ == "__main__":
     processor = DataProcessor(INPUT_DIR, OUTPUT_DIR, INDEX_FILE, DATA_ROOT)   # run processing
-    processor.run()   # parse emails to write CSV partitions and index
+    processor.run(max_records=5000)   # parse emails to write CSV partitions and index
     processor.verify_outputs()   # verify output counts (CSV partitions + index entries)

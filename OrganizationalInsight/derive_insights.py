@@ -20,6 +20,10 @@ NODE_PATH           = BASE_DIR / "data" / "NetworkConstruction" / "network_nodes
 EDGE_DIR            = BASE_DIR / "data" / "NetworkConstruction"
 OUTPUT_DIR          = BASE_DIR / "data" / "OrganizationalInsight"
 
+# output for predictive burnout model
+TEMP_DIR = OUTPUT_DIR / "MonthlyMetrics"
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
 CHUNK_SIZE          = 10_000
 DBSCAN_EPS          = 0.5
 DBSCAN_MIN_SAMPLES  = 5
@@ -44,7 +48,8 @@ BURNOUT_FEATURES = ISO_FEATURES + ["anomaly_score"]
 
 # ——— LOAD GLOBAL METRICS ——————————————————————
 
-df_global = pd.read_csv(METRICS_PATH, index_col="node_id")
+df_global = pd.read_csv(METRICS_PATH)
+df_global = df_global[df_global["node_id"].notna()].astype({"node_id": str})
 
 # ——— COMMUNITY DETECTION (RUN ONCE) —————————————————
 
@@ -57,14 +62,17 @@ with open(NODE_PATH, "r", encoding="utf-8") as fh:
 for ef in sorted(EDGE_DIR.glob("network_edges_*.csv")):
     for chunk in pd.read_csv(ef, chunksize=CHUNK_SIZE):
         for _, r in chunk.iterrows():
-            G_full.add_edge(r["source"], r["target"], weight=r.get("weight", 1.0))
+            src, tgt = r["source"], r["target"]
+            if pd.notna(src) and pd.notna(tgt):
+                G_full.add_edge(src, tgt, weight=r.get("weight", 1.0))
 
 partition = community_louvain.best_partition(G_full.to_undirected())
 num_communities = len(set(partition.values()))
 
 # Determine top influencers by PageRank (90th percentile threshold)
-pr_thresh       = df_global["pagerank"].quantile(0.90)
-top_influencers = set(df_global[df_global["pagerank"] > pr_thresh].index)
+pr_thresh = df_global["pagerank"].quantile(0.90)
+top_influencers = set(df_global.loc[df_global["pagerank"] > pr_thresh, "node_id"])
+
 
 # ——— MAIN WORKFLOW ——————————————————————————————————
 
@@ -79,52 +87,81 @@ def main():
         "total_anomalies": 0,
         "communities":     num_communities,
         "high_burnout":    0,
-        "top_influencers": list(top_influencers)
+        "top_influencers": list(top_influencers)[:10]
     }
 
     for email_csv in sorted(EMAIL_DIR.glob("enriched_emails_*.csv")):
-        month         = email_csv.stem.replace("enriched_emails_", "")
-        insights_path = OUTPUT_DIR / f"insights_{month}.csv"
+        ym = email_csv.stem.replace("enriched_emails_", "")
+        insights_path = OUTPUT_DIR / f"insights_{ym}.csv"
+
+        try:
+            year, month = map(int, ym.split("_"))
+        except ValueError:
+            year, month = (None, None)
 
         # 1) Feature engineering: per-sender volume & avg sentiment (streamed)
         feats = {}
+
         for chunk in pd.read_csv(email_csv, chunksize=CHUNK_SIZE):
-            # Ensure proper types before aggregation
-            if "sender" not in chunk.columns or "compound" not in chunk.columns:
-                raise ValueError(f"Expected columns 'sender' and 'compound' in {email_csv}")
-            chunk["sender"]   = chunk["sender"].fillna("").astype(str)
+            required_cols = {"sender", "recipients", "compound"}
+            missing = required_cols - set(chunk.columns)
+            if missing:
+                raise ValueError(f"Missing expected columns: {missing} in {email_csv}")
+
+            chunk["sender"] = chunk["sender"].fillna("").astype(str)
+            chunk["recipients"] = chunk["recipients"].fillna("").astype(str)
             chunk["compound"] = pd.to_numeric(chunk["compound"], errors="coerce")
 
-            grp = (
-                chunk.groupby("sender")["compound"]
-                     .agg(volume="count", avg_sentiment="mean")
-                     .reset_index()
-            )
+            # --- Collect sender records ---
+            records = []
+            for _, row in chunk.iterrows():
+                sender = row["sender"].strip()
+                if sender:
+                    records.append({"node_id": sender, "compound": row["compound"]})
 
-            for row in grp.itertuples(index=False):
-                sid, vol, avg_s = row.sender, int(row.volume), float(row.avg_sentiment) if pd.notna(row.avg_sentiment) else 0.0
-                prev = feats.get(sid)
-                if prev is None:
-                    feats[sid] = {"volume": vol, "avg_sentiment": avg_s}
-                else:
-                    tot = prev["volume"] + vol
-                    combined_avg = (
-                        (prev["avg_sentiment"] * prev["volume"] + avg_s * vol) / max(tot, 1)
-                        if tot > 0 else 0.0
-                    )
-                    feats[sid] = {"volume": tot, "avg_sentiment": combined_avg}
+                # --- Split recipients and collect ---
+                rec_list = [r.strip() for r in row["recipients"].split(";") if r.strip()]
+                for rec in rec_list:
+                    records.append({"node_id": rec, "compound": row["compound"]})
 
+            # --- Aggregate by node_id ---
+            if records:
+                df_temp = pd.DataFrame(records)
+                grp = (
+                    df_temp.groupby("node_id")["compound"]
+                        .agg(volume="count", avg_sentiment="mean")
+                        .reset_index()
+                )
+
+                # Merge into main dictionary (accumulate across chunks)
+                for row in grp.itertuples(index=False):
+                    nid, vol, avg_s = row.node_id, int(row.volume), float(row.avg_sentiment) if pd.notna(row.avg_sentiment) else 0.0
+                    prev = feats.get(nid)
+                    if prev is None:
+                        feats[nid] = {"volume": vol, "avg_sentiment": avg_s}
+                    else:
+                        tot = prev["volume"] + vol
+                        combined_avg = (
+                            (prev["avg_sentiment"] * prev["volume"] + avg_s * vol) / max(tot, 1)
+                            if tot > 0 else 0.0
+                        )
+                        feats[nid] = {"volume": tot, "avg_sentiment": combined_avg}
+
+        # --- Final dataframe with both sender + recipient combined ---
         df_feat = (
             pd.DataFrame.from_dict(feats, orient="index")
-              .rename_axis("node_id")
-              .reset_index()
+            .rename_axis("node_id")
+            .reset_index()
         )
 
         # 2) Merge with global SNA metrics
-        df_merged = (
-            df_feat.merge(df_global, how="left", left_on="node_id", right_index=True)
-                   .fillna(0)
-        )
+        # Merge only metrics for same year & month
+        df_metrics_month = df_global[
+            (df_global["year"] == year) & (df_global["month"] == month)
+        ].copy()
+
+        df_merged = df_feat.merge(df_metrics_month, on="node_id", how="left").fillna(0)
+        df_merged = df_merged.drop_duplicates(subset=["node_id"])
 
         # 3) Anomaly detection
         # 3a) IsolationForest (rolling-window fit; score current month only)
@@ -151,7 +188,7 @@ def main():
         df_merged["dbscan_label"] = db.fit_predict(X_db)
 
         # 4) Community & influence mapping
-        df_merged["community_id"]   = df_merged["node_id"].map(partition.get).fillna(-1).astype(int)
+        df_merged["community_id"]   = df_merged["node_id"].map(partition).fillna(-1).astype(int)
         df_merged["influence_flag"] = df_merged["node_id"].isin(top_influencers)
 
         # 5) Burnout prediction (SGD "logistic" + XGBoost)
@@ -180,6 +217,17 @@ def main():
         df_merged["burnout_label"] = (df_merged["burnout_prob"] > 0.5).astype(int)
         summary["high_burnout"]   += int(df_merged["burnout_label"].sum())
 
+        # Save per-month communication + anomaly + burnout metrics for predictive burnout model
+        month_metrics = df_merged[[
+            "node_id", "volume", "avg_sentiment",
+            "anomaly_score", "burnout_label"
+        ]].copy()
+        month_metrics["year"] = year
+        month_metrics["month"] = month
+
+        month_path = TEMP_DIR / f"metrics_{year}_{month:02d}.csv"
+        month_metrics.to_csv(month_path, index=False)
+
         # 6) Write monthly insights (Power BI–ready)
         out_cols = [
             "node_id", "anomaly_score", "dbscan_label",
@@ -197,8 +245,40 @@ def main():
     print(f"[DONE] Summary → {OUTPUT_DIR/'insight_summary.json'} "
           f"(total_anomalies={summary['total_anomalies']}, high_burnout={summary['high_burnout']}, "
           f"communities={summary['communities']})")
+    
+    # --- Combine monthly metrics with global SNA metrics ---
+    print("\n[STEP] Combining MonthlyMetrics with SNA metrics...")
+
+    # Read all monthly metrics
+    monthly_files = sorted(TEMP_DIR.glob("metrics_*.csv"))
+    all_months = []
+    for f in monthly_files:
+        df_m = pd.read_csv(f)
+        all_months.append(df_m)
+
+    df_dynamic = pd.concat(all_months, ignore_index=True)
+
+    # Merge with SNA metrics
+    df_combined = df_dynamic.merge(
+        df_global,
+        on=["node_id", "year", "month"],
+        how="left"
+    )
+
+    # Reorder and fill missing values
+    df_combined = df_combined[
+        ["year", "month", "node_id",
+        "volume", "avg_sentiment", "anomaly_score", "burnout_label",
+        "indegree", "outdegree", "betweenness", "clustering_coeff", "pagerank"]
+    ].fillna(0)
+
+    # Save the combined file
+    final_path = OUTPUT_DIR / "burnout_feature.csv"
+    df_combined.to_csv(final_path, index=False)
+
 
 if __name__ == "__main__":
     print("\nRunning...\n")
     main()
+
     print("\nFinished!\n")

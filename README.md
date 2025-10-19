@@ -30,6 +30,9 @@ pip install -r requirements.txt
 
 python run_pipeline.py
 
+### Run Demo visualization
+python -m streamlit run Network_web/network_web.py
+
 
 
 

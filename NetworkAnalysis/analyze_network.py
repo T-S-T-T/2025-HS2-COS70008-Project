@@ -36,7 +36,6 @@ BETWEENNESS_SAMPLE_MAX_NODES   = 1000      # was 2000 (even faster)
 CLUSTERING_EDGE_CUTOFF         = 400_000   # optional: skip clustering earlier
 
 
-
 def load_nodes_ndjson(path: str) -> Dict[str, dict]:
     """Read NDJSON lines with 'node_id'."""
     nodes = {}
@@ -50,7 +49,6 @@ def load_nodes_ndjson(path: str) -> Dict[str, dict]:
             if nid:
                 nodes[str(nid)] = {k: v for k, v in obj.items() if k not in ("node_id", "id")}
     return nodes
-
 
 def add_edges_from_partition(G: nx.DiGraph, csv_path: str, chunksize: int = 250_000) -> int:
     """Stream a partition CSV and add weighted edges to G. Returns rows read."""
@@ -70,7 +68,6 @@ def add_edges_from_partition(G: nx.DiGraph, csv_path: str, chunksize: int = 250_
         total += len(chunk)
     return total
 
-
 def build_graph_from_partitions() -> nx.DiGraph:
     nodes_attrs = load_nodes_ndjson(NODES_NDJSON)
     G = nx.DiGraph()
@@ -87,7 +84,6 @@ def build_graph_from_partitions() -> nx.DiGraph:
     print(f"[info] streamed rows: {rows:,} |V|={G.number_of_nodes():,} |E|={G.number_of_edges():,}")
     return G
 
-
 def build_graph_from_legacy_csv() -> nx.DiGraph:
     nodes = pd.read_csv(NODES_CSV_FALLBACK)
     edges = pd.read_csv(EDGES_CSV_FALLBACK)
@@ -100,7 +96,6 @@ def build_graph_from_legacy_csv() -> nx.DiGraph:
         G.add_edge(str(r["source"]), str(r["target"]), weight=int(r.get("weight", 1)))
     print(f"[info] legacy graph |V|={G.number_of_nodes():,} |E|={G.number_of_edges():,}")
     return G
-
 
 def compute_metrics(G: nx.DiGraph) -> pd.DataFrame:
     """
@@ -151,40 +146,65 @@ def compute_metrics(G: nx.DiGraph) -> pd.DataFrame:
     print(f"[metrics] all done in {time.time()-t0:.1f}s")
     return pd.DataFrame(rows).sort_values("pagerank", ascending=False, ignore_index=True)
 
+def build_graph_from_edges(csv_path: str) -> tuple[nx.DiGraph, int, int]:
+    """Build DiGraph from a single monthly network_edges_YYYY_MM.csv file."""
+    edges = pd.read_csv(csv_path)
+    if not {"source", "target", "weight", "year", "month"}.issubset(edges.columns):
+        raise ValueError(f"Missing required columns in {csv_path}")
 
-def save_outputs(df: pd.DataFrame, G: nx.DiGraph) -> None:
-    df.to_csv(SNA_METRICS_CSV, index=False)
-    dens = float(nx.density(G)) if G.number_of_nodes() > 1 else 0.0
-    with open(DENSITY_JSON, "w", encoding="utf-8") as f:
-        json.dump({"density": dens}, f, indent=2)
-    print(f"[ok] wrote {SNA_METRICS_CSV}")
-    print(f"[ok] wrote {DENSITY_JSON} (density={dens:.6f})")
+    year = int(edges["year"].iloc[0])
+    month = int(edges["month"].iloc[0])
 
+    G = nx.DiGraph()
+    for _, row in edges.iterrows():
+        src, tgt, w = str(row["source"]), str(row["target"]), float(row["weight"])
+        if not src or not tgt:
+            continue
+        if G.has_edge(src, tgt):
+            G[src][tgt]["weight"] += w
+        else:
+            G.add_edge(src, tgt, weight=w)
+    print(f"[build] {os.path.basename(csv_path)} |V|={G.number_of_nodes()} |E|={G.number_of_edges()}")
+    return G, year, month
 
 def main():
-    # choose inputs automatically
-    if os.path.exists(NODES_NDJSON) and glob.glob(EDGES_GLOB):
-        print("[1/4] using NetworkConstruction inputs (streaming partitions)")
-        G = build_graph_from_partitions()
-    elif os.path.exists(NODES_CSV_FALLBACK) and os.path.exists(EDGES_CSV_FALLBACK):
-        print("[1/4] using legacy CSV inputs (data/nodes.csv, data/edges.csv)")
-        G = build_graph_from_legacy_csv()
-    else:
-        raise FileNotFoundError(
-            "No inputs found.\n"
-            f"Expected either:\n"
-            f"  - {NODES_NDJSON} + {EDGES_GLOB}\n"
-            f"or\n"
-            f"  - {NODES_CSV_FALLBACK} + {EDGES_CSV_FALLBACK}"
-        )
+    edge_files = sorted(glob.glob(EDGES_GLOB))
+    if not edge_files:
+        raise FileNotFoundError(f"No edge partitions found matching {EDGES_GLOB}")
 
-    print("[2/4] computing metrics")
-    df = compute_metrics(G)
+    all_dfs = []
+    combined_G = nx.DiGraph()
 
-    print("[3/4] saving outputs")
-    save_outputs(df, G)
+    for csv_path in edge_files:
+        ym = os.path.basename(csv_path).replace("network_edges_", "").replace(".csv", "")
+        print(f"\n[PROCESS] {ym}")
 
-    print("[DONE] outputs in data/NetworkAnalysis/")
+        # build each month's graph
+        G, year, month = build_graph_from_edges(csv_path)
+        df = compute_metrics(G)
+        df["year"] = year
+        df["month"] = month
+        all_dfs.append(df)
+
+        # combine edges and nodes into one master graph
+        combined_G.add_nodes_from(G.nodes(data=True))
+        for u, v, data in G.edges(data=True):
+            w = data.get("weight", 1)
+            if combined_G.has_edge(u, v):
+                combined_G[u][v]["weight"] += w
+            else:
+                combined_G.add_edge(u, v, weight=w)
+
+    # Combine metrics for all months into one file
+    final_df = pd.concat(all_dfs, ignore_index=True)
+    final_df.to_csv(SNA_METRICS_CSV, index=False)
+    print(f"\nSaved all metrics: {SNA_METRICS_CSV}")
+
+    # compute density of the combined graph
+    density = nx.density(combined_G)
+    density_value = round(density, 10)
+    with open(DENSITY_JSON, "w", encoding="utf-8") as f:
+        json.dump({"density": float(f"{density_value:.10f}")}, f, indent=2)
 
 if __name__ == "__main__":
     main()

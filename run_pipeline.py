@@ -9,6 +9,7 @@ modules = [
     "NetworkGraphAnalysis.network_graph_analysis_1",
     "OrganizationalInsight.derive_insights",
     "InteractiveVisualization.interactive_visualization",
+    "Network_web.combine_input",
 ]
 
 def run_pipeline():
